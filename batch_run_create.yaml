@@ -1,0 +1,8 @@
+name: ${run_name}
+display_name: socs-prompt_${variant_id}_${timestamp} # supported macros: ${variant_id},${timestamp},${run}
+flow: c:\Users\Kristof Pipeleers\Desktop\SOCS project\Code\prompt_flows\socs-prompt
+data: c:\Users\Kristof Pipeleers\Desktop\SOCS project\Code\prompt_flows\socs-prompt\batch_run.jsonl
+#run: <Uncomment to select a run input>
+column_mapping:
+  question: ${data.question}
+  LLM_question: ${data.LLM_question}

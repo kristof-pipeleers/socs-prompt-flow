@@ -1,0 +1,6 @@
+azure-search-documents==11.4.0b8
+promptflow
+promptflow-tools
+openai==0.27.8
+apify-client
+langchain

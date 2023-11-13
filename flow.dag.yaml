@@ -1,0 +1,211 @@
+id: template_chat_flow
+name: Template Chat Flow
+environment:
+  python_requirements_txt: requirements.txt
+inputs:
+  question:
+    type: string
+    is_chat_input: true
+    default: Shimano customer channel
+    is_chat_history: false
+  LLM_question:
+    type: string
+    default: "Retrieve the customer channel of the company Shimano: business to
+      business (B2B) or business to customer (B2C)"
+outputs:
+  answer:
+    type: string
+    reference: ${re_generate_parameters.output}
+nodes:
+- name: retrieve_urls
+  type: python
+  source:
+    type: code
+    path: retrieve_urls.py
+  inputs:
+    question: ${inputs.question}
+    num_search_results: 15
+- name: crawl_urls
+  type: python
+  source:
+    type: code
+    path: crawl_urls.py
+  inputs:
+    urls: ${retrieve_urls.output}
+- name: user_prompt
+  type: prompt
+  source:
+    type: code
+    path: user_prompt.jinja2
+  inputs:
+    question: ${inputs.LLM_question}
+- name: retrieve_documents
+  type: python
+  source:
+    type: code
+    path: retrieve_documents.py
+  inputs:
+    question: ${inputs.LLM_question}
+    azure_openai: socs-azure-ai
+    data: ${crawl_urls.output}
+- name: retrieve_parameters
+  type: python
+  source:
+    type: code
+    path: retrieve_parameters.py
+  inputs:
+    question: ${inputs.LLM_question}
+    azure_openai: socs-azure-ai
+    documentation: ${retrieve_documents.output}
+    response_message: ${chat.output}
+- name: chat
+  type: llm
+  source:
+    type: code
+    path: chat.jinja2
+  inputs:
+    deployment_name: socs-kristof-US
+    max_tokens: 256
+    temperature: 0
+    top_p: 0.95
+    prompt_text: ${user_prompt.output}
+    functions: "[\r
+
+      \    {\r
+
+      \        \"name\": \"get_company_category\",\r
+
+      \        \"description\": \"retrieves the category the company
+      belongs to from the search index based on the parameters provided.\",\r
+
+      \        \"parameters\": {\"type\": \"object\", \"properties\":
+      {}}\r
+
+      \    },\r
+
+      \    {\r
+
+      \        \"name\": \"get_customer_channel\",\r
+
+      \        \"description\": \"retrieves the customer channel of the
+      company: business to business (B2B) or business to customer (B2C)\",\r
+
+      \        \"parameters\": {\"type\": \"object\", \"properties\":
+      {}}\r
+
+      \    },\r
+
+      \    {\r
+
+      \        \"name\": \"get_organization_type\",\r
+
+      \        \"description\": \"retrieves the type of organization the
+      company provides: Sociale organisatie, VZW, Reguliere organisatie or
+      Overheidsinstantie\",\r
+
+      \        \"parameters\": {\"type\": \"object\", \"properties\":
+      {}}\r
+
+      \    },\r
+
+      \    {\r
+
+      \        \"name\": \"get_company_offering\",\r
+
+      \        \"description\": \"retrieves the type of offerings the
+      company provides: service or product.\",\r
+
+      \        \"parameters\": {\"type\": \"object\", \"properties\":
+      {}}\r
+
+      \    },\r
+
+      \    {\r
+
+      \        \"name\": \"get_company_activities\",\r
+
+      \        \"description\": \"Provide a score for following business
+      activities for the company: Bio-economy, Mining, Component, Part,
+      Assembly, Distribution, Design, Energy recovery, and Waste. Provide a
+      score between 0 and 2, where score 0 represents 'not applicable' score 1
+      represents 'moderately applicable' score 2 represents 'highly
+      applicable'.\",\r
+
+      \        \"parameters\": {\"type\": \"object\", \"properties\":
+      {}}\r
+
+      \    },\r
+
+      \    {\r
+
+      \        \"name\": \"get_company_components\",\r
+
+      \        \"description\": \"Provide a score for following components
+      for the company: Mechanical static, Mechanical dynamic, Electrical static,
+      Electrical dynamic, Thermal static, Thermal dynamic, Electronic static and
+      Electronic dynamic. Provide a score between 0 and 2, where score 0
+      represents 'not applicable' score 1 represents 'moderately applicable'
+      score 2 represents 'highly applicable'.\",\r
+
+      \        \"parameters\": {\"type\": \"object\", \"properties\":
+      {}}\r
+
+      \    },\r
+
+      \    {\r
+
+      \        \"name\": \"get_bike_types\",\r
+
+      \        \"description\": \"retrieves the type of bikes the company
+      is engaged in: city bike, sports bike or electric bike\",\r
+
+      \        \"parameters\": {\"type\": \"object\", \"properties\":
+      {}}\r
+
+      \    },\r
+
+      \    {\r
+
+      \        \"name\": \"get_sustainable_strategy\",\r
+
+      \        \"description\": \"provides a score for to what extend the
+      company is engaged in following sustainable strategies: eco-efficiency,
+      value creation, usage optimization, lifespan extension, cascading
+      processes, community building, capacity building, regenerative
+      principles.\",\r
+
+      \        \"parameters\": {\"type\": \"object\", \"properties\":
+      {}}\r
+
+      \    }\r
+
+      \r
+
+      ]"
+  connection: socs-azure-ai
+  api: chat
+- name: groundedness_score
+  type: llm
+  source:
+    type: code
+    path: groundedness_score.jinja2
+  inputs:
+    max_tokens: 256
+    deployment_name: socs-kristof-US
+    temperature: 0
+    top_p: 0.95
+    context: ${retrieve_documents.output}
+    answer: ${retrieve_parameters.output}
+  connection: socs-azure-ai
+  api: chat
+- name: re_generate_parameters
+  type: python
+  source:
+    type: code
+    path: re_generate_parameters.py
+  inputs:
+    question: ${inputs.LLM_question}
+    azure_openai: socs-azure-ai
+    documentation: ${retrieve_documents.output}
+    feedback_message: ${groundedness_score.output}
+    response_message: ${chat.output}
