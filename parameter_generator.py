@@ -18,13 +18,14 @@ def main():
     with open("batch_run.jsonl", "r") as file:
         batch_run_template = file.read()
 
-    run_name = f"run_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-
     venv_activate_script = os.path.join("venv", "Scripts", "activate")
 
 
     # Iterate through each company name
     for company_name in company_names:
+
+        run_name = f"run_{company_name}"
+        
         # Replace the placeholders in the batch_run.jsonl file
         batch_run_content = replace_company_name(batch_run_template, company_name, run_name)
 
@@ -33,9 +34,9 @@ def main():
         with open(temp_batch_run_path, "w") as temp_file:
             temp_file.write(batch_run_content)
 
-        activate_cmd = f".{venv_activate_script}"  # Use "." for sourcing in PowerShell
+        '''activate_cmd = f".{venv_activate_script}"  # Use "." for sourcing in PowerShell
         print(activate_cmd)
-        subprocess.run(activate_cmd, shell=True, check=True)
+        subprocess.run(activate_cmd, shell=True, check=True)'''
         
         # Run the create_run.yaml script with the updated batch_run.jsonl file
         command = [
